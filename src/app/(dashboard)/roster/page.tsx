@@ -11,25 +11,53 @@ export default async function RosterPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Get membership to scope queries to current project
+  const { data: membershipRow } = await supabase
+    .from("project_members")
+    .select("*")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single();
+
+  const membership = membershipRow as { project_id: string; role: string; user_id: string; id: string } | null;
+  if (!membership) redirect("/dashboard");
+
+  const projectId = membership.project_id;
+
   // Fetch all roster athletes
   const { data: athletesRaw } = await supabase
     .from("athletes")
     .select("*")
     .order("name");
 
-  // Fetch content counts: hub_athletes linked to roster → hub_asset_athletes
-  const { data: linkCounts } = await supabase
-    .from("hub_athletes")
-    .select("roster_athlete_id, hub_asset_athletes(count)")
-    .not("roster_athlete_id", "is", null);
+  // Fetch all asset links joined to hub_athletes so we can count distinct assets per roster_athlete
+  const { data: assetLinks } = await supabase
+    .from("hub_asset_athletes")
+    .select("asset_id, hub_athletes!inner(roster_athlete_id, project_id)")
+    .eq("hub_athletes.project_id", projectId)
+    .not("hub_athletes.roster_athlete_id", "is", null);
 
-  // Build a map of roster_athlete_id → content count
+  // Build a map of roster_athlete_id → distinct content (asset) count
   const countMap = new Map<number, number>();
-  if (linkCounts) {
-    for (const row of linkCounts as unknown as { roster_athlete_id: number; hub_asset_athletes: { count: number }[] }[]) {
-      const count = row.hub_asset_athletes?.[0]?.count ?? 0;
-      const existing = countMap.get(row.roster_athlete_id) || 0;
-      countMap.set(row.roster_athlete_id, existing + count);
+  if (assetLinks) {
+    const assetSetMap = new Map<number, Set<string>>();
+
+    for (const row of assetLinks as unknown as { asset_id: string; hub_athletes: { roster_athlete_id: number } }[]) {
+      const rosterId = row.hub_athletes?.roster_athlete_id;
+      const assetId = row.asset_id;
+
+      if (rosterId == null || assetId == null) continue;
+
+      let assetSet = assetSetMap.get(rosterId);
+      if (!assetSet) {
+        assetSet = new Set<string>();
+        assetSetMap.set(rosterId, assetSet);
+      }
+      assetSet.add(assetId);
+    }
+
+    for (const [rosterId, assetSet] of assetSetMap.entries()) {
+      countMap.set(rosterId, assetSet.size);
     }
   }
 
