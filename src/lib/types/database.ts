@@ -29,6 +29,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
+          id?: number;
           name?: string;
           sport?: string;
           league?: string;

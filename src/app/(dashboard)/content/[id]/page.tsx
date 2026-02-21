@@ -91,7 +91,7 @@ export default async function AssetDetailPage({
   const rosterIds = assetAthletes
     .map((aa) => aa.athlete?.roster_athlete_id)
     .filter((id): id is number => id != null);
-  const rosterMap = new Map<number, { sport: string; league: string; team: string }>();
+  const rosterMap: Record<number, { sport: string; league: string; team: string }> = {};
   if (rosterIds.length > 0) {
     const { data: rosterData } = await supabase
       .from("athletes")
@@ -99,7 +99,7 @@ export default async function AssetDetailPage({
       .in("id", rosterIds);
     if (rosterData) {
       for (const r of rosterData as unknown as { id: number; sport: string; league: string; team: string }[]) {
-        rosterMap.set(r.id, { sport: r.sport, league: r.league, team: r.team });
+        rosterMap[r.id] = { sport: r.sport, league: r.league, team: r.team };
       }
     }
   }
@@ -261,7 +261,7 @@ export default async function AssetDetailPage({
                         <div className="flex flex-wrap gap-1.5 mt-0.5">
                           {assetAthletes.map((aa) => {
                             const roster = aa.athlete?.roster_athlete_id
-                              ? rosterMap.get(aa.athlete.roster_athlete_id)
+                              ? rosterMap[aa.athlete.roster_athlete_id]
                               : null;
                             return (
                               <Badge key={aa.athlete.id} variant="secondary" className="text-xs">

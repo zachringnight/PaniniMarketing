@@ -50,11 +50,12 @@ export default async function ContentQueuePage({
   if (searchParams.athlete) {
     const rosterId = parseInt(searchParams.athlete, 10);
     if (!isNaN(rosterId)) {
-      // Find hub_athletes linked to this roster athlete
+      // Find hub_athletes linked to this roster athlete within the current project
       const { data: hubAthletes } = await supabase
         .from("hub_athletes")
         .select("id")
-        .eq("roster_athlete_id", rosterId);
+        .eq("roster_athlete_id", rosterId)
+        .eq("project_id", projectId);
 
       if (hubAthletes && hubAthletes.length > 0) {
         const hubIds = (hubAthletes as unknown as { id: string }[]).map((h) => h.id);

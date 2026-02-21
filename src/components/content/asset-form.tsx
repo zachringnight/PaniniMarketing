@@ -323,7 +323,7 @@ export function AssetForm({
                           {athlete.full_name}
                           {roster && (
                             <span className="ml-1 opacity-60">
-                              ({roster.league})
+                              ({roster.league} · {roster.team})
                             </span>
                           )}
                         </Button>
