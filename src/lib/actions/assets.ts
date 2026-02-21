@@ -192,6 +192,29 @@ export async function updateAssetStatus(assetId: string, status: AssetStatus) {
 
 export async function deleteAsset(assetId: string) {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  // Verify user is admin on the project that owns this asset
+  const { data: assetRow } = await supabase
+    .from("assets")
+    .select("project_id")
+    .eq("id", assetId)
+    .single();
+
+  if (!assetRow) return { error: "Asset not found" };
+  const asset = assetRow as unknown as { project_id: string };
+
+  const { data: memberRow } = await supabase
+    .from("project_members")
+    .select("role")
+    .eq("project_id", asset.project_id)
+    .eq("user_id", user.id)
+    .single();
+
+  const member = memberRow as unknown as { role: string } | null;
+  if (!member || member.role !== "admin") return { error: "Not authorized" };
+
   const { error } = await supabase.from("assets").delete().eq("id", assetId);
   if (error) return { error: error.message };
 

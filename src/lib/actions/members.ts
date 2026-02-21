@@ -5,6 +5,18 @@ import { logActivity } from "@/lib/services/activity-logger";
 import { revalidatePath } from "next/cache";
 import type { UserRole } from "@/lib/types/database";
 
+async function verifyAdmin(supabase: ReturnType<typeof createClient>, userId: string, projectId: string) {
+  const { data: memberRow } = await supabase
+    .from("project_members")
+    .select("role")
+    .eq("project_id", projectId)
+    .eq("user_id", userId)
+    .single();
+
+  const member = memberRow as unknown as { role: string } | null;
+  return member?.role === "admin";
+}
+
 export async function inviteMember({
   projectId,
   email,
@@ -21,6 +33,11 @@ export async function inviteMember({
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  // Verify caller is admin on this project
+  if (!(await verifyAdmin(supabase, user.id, projectId))) {
+    return { error: "Not authorized" };
+  }
 
   // Check if user already exists
   const { data: existingUserRow } = await serviceClient
@@ -104,10 +121,15 @@ export async function updateMemberRole({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  if (!(await verifyAdmin(supabase, user.id, projectId))) {
+    return { error: "Not authorized" };
+  }
+
   const { error } = await supabase
     .from("project_members")
     .update({ role } as never)
-    .eq("id", memberId);
+    .eq("id", memberId)
+    .eq("project_id", projectId);
 
   if (error) return { error: error.message };
 
@@ -133,10 +155,15 @@ export async function removeMember({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  if (!(await verifyAdmin(supabase, user.id, projectId))) {
+    return { error: "Not authorized" };
+  }
+
   const { error } = await supabase
     .from("project_members")
     .delete()
-    .eq("id", memberId);
+    .eq("id", memberId)
+    .eq("project_id", projectId);
 
   if (error) return { error: error.message };
 

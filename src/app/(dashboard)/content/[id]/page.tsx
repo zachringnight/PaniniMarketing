@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import Image from "next/image";
 import {
   ExternalLink,
   ArrowLeft,
@@ -147,9 +148,11 @@ export default async function AssetDetailPage({
               <div className="flex gap-6">
                 <div className="h-48 w-48 shrink-0 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
                   {asset.thumbnail_url ? (
-                    <img
+                    <Image
                       src={asset.thumbnail_url}
                       alt={asset.title}
+                      width={192}
+                      height={192}
                       className="h-full w-full object-cover"
                     />
                   ) : (

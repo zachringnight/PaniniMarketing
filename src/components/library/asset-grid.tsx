@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Image as ImageIcon } from "lucide-react";
@@ -24,12 +25,13 @@ export function AssetGrid({ assets }: AssetGridProps) {
       {assets.map((asset) => (
         <Link key={asset.id} href={`/content/${asset.id}`}>
           <Card className="hover:bg-accent/50 transition-colors cursor-pointer overflow-hidden">
-            <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
+            <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
               {asset.thumbnail_url ? (
-                <img
+                <Image
                   src={asset.thumbnail_url}
                   alt={asset.title}
-                  className="h-full w-full object-cover"
+                  fill
+                  className="object-cover"
                 />
               ) : (
                 <ImageIcon className="h-12 w-12 text-muted-foreground" />
