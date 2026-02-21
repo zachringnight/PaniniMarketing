@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Image as ImageIcon } from "lucide-react";
@@ -19,9 +20,11 @@ export function AssetCardPreview({ asset }: AssetCardPreviewProps) {
             {/* Thumbnail */}
             <div className="h-16 w-16 shrink-0 rounded-md bg-muted flex items-center justify-center overflow-hidden">
               {asset.thumbnail_url ? (
-                <img
+                <Image
                   src={asset.thumbnail_url}
                   alt={asset.title}
+                  width={64}
+                  height={64}
                   className="h-full w-full object-cover"
                 />
               ) : (

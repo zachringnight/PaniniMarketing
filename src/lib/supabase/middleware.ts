@@ -29,9 +29,13 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Auth service unreachable; treat as unauthenticated
+  }
 
   // Protected routes — redirect to login if not authenticated
   const isAuthRoute = request.nextUrl.pathname.startsWith("/login") ||
