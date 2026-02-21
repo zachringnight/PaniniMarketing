@@ -6,7 +6,7 @@
 function getEnvVar(key: string, required: boolean = true): string {
   const value = process.env[key];
   
-  if (!value && required) {
+  if (value === undefined && required) {
     throw new Error(
       `Missing required environment variable: ${key}\n\n` +
       `Please set this variable in your Vercel project settings or .env.local file.\n` +
@@ -44,7 +44,7 @@ export function validateEnv() {
     'SUPABASE_SERVICE_ROLE_KEY',
   ];
   
-  const missing = required.filter(key => !process.env[key]);
+  const missing = required.filter(key => process.env[key] === undefined);
   
   if (missing.length > 0) {
     throw new Error(
