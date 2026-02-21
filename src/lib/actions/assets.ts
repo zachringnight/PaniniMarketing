@@ -52,7 +52,7 @@ export async function createAsset(input: CreateAssetInput) {
 
   // Add athlete tags
   if (input.athleteIds?.length) {
-    await supabase.from("asset_athletes").insert(
+    await supabase.from("hub_asset_athletes").insert(
       input.athleteIds.map((athleteId) => ({
         asset_id: asset.id,
         athlete_id: athleteId,
@@ -125,9 +125,9 @@ export async function updateAsset(
 
   // Update junction tables if provided
   if (updates.athleteIds !== undefined) {
-    await supabase.from("asset_athletes").delete().eq("asset_id", assetId);
+    await supabase.from("hub_asset_athletes").delete().eq("asset_id", assetId);
     if (updates.athleteIds.length) {
-      await supabase.from("asset_athletes").insert(
+      await supabase.from("hub_asset_athletes").insert(
         updates.athleteIds.map((athleteId) => ({
           asset_id: assetId,
           athlete_id: athleteId,

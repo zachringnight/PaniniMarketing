@@ -1,5 +1,6 @@
 -- Partnership Hub: Row Level Security Policies
--- Ensures each role can only access what they're permitted to
+-- Idempotent — safe to run multiple times on a shared Supabase instance.
+-- Ensures each role can only access what they're permitted to.
 
 -- ============================================
 -- ENABLE RLS ON ALL TABLES
@@ -10,9 +11,9 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE project_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE phases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE athletes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hub_athletes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE asset_athletes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hub_asset_athletes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_clubs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approvals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
@@ -49,34 +50,32 @@ RETURNS boolean AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- ============================================
--- PROJECTS
+-- POLICIES (DROP IF EXISTS + CREATE for idempotency)
 -- ============================================
 
--- All members can view their projects
+-- PROJECTS
+DROP POLICY IF EXISTS "Members can view their projects" ON projects;
 CREATE POLICY "Members can view their projects"
   ON projects FOR SELECT
   USING (is_project_member(id));
 
--- Only admins can create projects
+DROP POLICY IF EXISTS "Admins can create projects" ON projects;
 CREATE POLICY "Admins can create projects"
   ON projects FOR INSERT
-  WITH CHECK (true); -- Controlled at application level; first project created during setup
+  WITH CHECK (true);
 
--- Only admins can update projects
+DROP POLICY IF EXISTS "Admins can update projects" ON projects;
 CREATE POLICY "Admins can update projects"
   ON projects FOR UPDATE
   USING (is_project_admin(id));
 
--- ============================================
 -- USERS
--- ============================================
-
--- Users can read their own profile
+DROP POLICY IF EXISTS "Users can read own profile" ON users;
 CREATE POLICY "Users can read own profile"
   ON users FOR SELECT
   USING (id = auth.uid());
 
--- Users can read profiles of people in their projects
+DROP POLICY IF EXISTS "Members can read co-member profiles" ON users;
 CREATE POLICY "Members can read co-member profiles"
   ON users FOR SELECT
   USING (
@@ -87,121 +86,106 @@ CREATE POLICY "Members can read co-member profiles"
     )
   );
 
--- Users can update their own profile
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
 CREATE POLICY "Users can update own profile"
   ON users FOR UPDATE
   USING (id = auth.uid());
 
--- ============================================
 -- PROJECT MEMBERS
--- ============================================
-
--- Members can see other members of their projects
+DROP POLICY IF EXISTS "Members can view project members" ON project_members;
 CREATE POLICY "Members can view project members"
   ON project_members FOR SELECT
   USING (is_project_member(project_id));
 
--- Only admins can manage members
+DROP POLICY IF EXISTS "Admins can insert project members" ON project_members;
 CREATE POLICY "Admins can insert project members"
   ON project_members FOR INSERT
   WITH CHECK (is_project_admin(project_id));
 
+DROP POLICY IF EXISTS "Admins can update project members" ON project_members;
 CREATE POLICY "Admins can update project members"
   ON project_members FOR UPDATE
   USING (is_project_admin(project_id));
 
+DROP POLICY IF EXISTS "Admins can delete project members" ON project_members;
 CREATE POLICY "Admins can delete project members"
   ON project_members FOR DELETE
   USING (is_project_admin(project_id));
 
--- ============================================
 -- PHASES
--- ============================================
-
--- All project members can view phases
+DROP POLICY IF EXISTS "Members can view phases" ON phases;
 CREATE POLICY "Members can view phases"
   ON phases FOR SELECT
   USING (is_project_member(project_id));
 
--- Only admins can manage phases
+DROP POLICY IF EXISTS "Admins can manage phases" ON phases;
 CREATE POLICY "Admins can manage phases"
   ON phases FOR ALL
   USING (is_project_admin(project_id));
 
--- ============================================
 -- CLUBS
--- ============================================
-
--- All project members can view clubs
+DROP POLICY IF EXISTS "Members can view clubs" ON clubs;
 CREATE POLICY "Members can view clubs"
   ON clubs FOR SELECT
   USING (is_project_member(project_id));
 
--- Only admins can manage clubs
+DROP POLICY IF EXISTS "Admins can manage clubs" ON clubs;
 CREATE POLICY "Admins can manage clubs"
   ON clubs FOR ALL
   USING (is_project_admin(project_id));
 
--- ============================================
--- ATHLETES
--- ============================================
-
--- Members can view athletes (PA sees all athletes, needed for tagging context)
-CREATE POLICY "Members can view athletes"
-  ON athletes FOR SELECT
+-- HUB ATHLETES
+DROP POLICY IF EXISTS "Members can view hub athletes" ON hub_athletes;
+CREATE POLICY "Members can view hub athletes"
+  ON hub_athletes FOR SELECT
   USING (is_project_member(project_id));
 
--- Only admins can manage athletes
-CREATE POLICY "Admins can manage athletes"
-  ON athletes FOR ALL
+DROP POLICY IF EXISTS "Admins can manage hub athletes" ON hub_athletes;
+CREATE POLICY "Admins can manage hub athletes"
+  ON hub_athletes FOR ALL
   USING (is_project_admin(project_id));
 
--- ============================================
--- ASSETS (most complex RLS)
--- ============================================
-
--- Admins: full access
+-- ASSETS
+DROP POLICY IF EXISTS "Admins have full asset access" ON assets;
 CREATE POLICY "Admins have full asset access"
   ON assets FOR ALL
   USING (is_project_admin(project_id));
 
--- Brand & League: can read all assets in their project
+DROP POLICY IF EXISTS "Brand and League can read all assets" ON assets;
 CREATE POLICY "Brand and League can read all assets"
   ON assets FOR SELECT
   USING (
     get_user_role(project_id) IN ('brand', 'league')
   );
 
--- PA: can only read assets tagged to athletes
+DROP POLICY IF EXISTS "PA can read athlete-tagged assets" ON assets;
 CREATE POLICY "PA can read athlete-tagged assets"
   ON assets FOR SELECT
   USING (
     get_user_role(project_id) = 'pa'
     AND EXISTS (
-      SELECT 1 FROM asset_athletes WHERE asset_id = assets.id
+      SELECT 1 FROM hub_asset_athletes WHERE asset_id = assets.id
     )
   );
 
--- Club: can read assets tagged to their club + approved league-wide assets
+DROP POLICY IF EXISTS "Club can read their tagged and approved assets" ON assets;
 CREATE POLICY "Club can read their tagged and approved assets"
   ON assets FOR SELECT
   USING (
     get_user_role(project_id) = 'club'
     AND (
-      -- Assets tagged to clubs the user belongs to (via project_members)
       EXISTS (
         SELECT 1 FROM asset_clubs ac
         WHERE ac.asset_id = assets.id
       )
       OR
-      -- Approved/published league-wide assets (not club-specific)
       (status IN ('approved', 'published') AND NOT EXISTS (
         SELECT 1 FROM asset_clubs ac WHERE ac.asset_id = assets.id
       ))
     )
   );
 
--- Viewer: can only read approved/published assets
+DROP POLICY IF EXISTS "Viewer can read approved assets" ON assets;
 CREATE POLICY "Viewer can read approved assets"
   ON assets FOR SELECT
   USING (
@@ -209,30 +193,27 @@ CREATE POLICY "Viewer can read approved assets"
     AND status IN ('approved', 'published')
   );
 
--- ============================================
--- ASSET_ATHLETES (junction)
--- ============================================
-
-CREATE POLICY "Members can view asset athletes"
-  ON asset_athletes FOR SELECT
+-- HUB ASSET_ATHLETES
+DROP POLICY IF EXISTS "Members can view hub asset athletes" ON hub_asset_athletes;
+CREATE POLICY "Members can view hub asset athletes"
+  ON hub_asset_athletes FOR SELECT
   USING (
     EXISTS (
       SELECT 1 FROM assets a WHERE a.id = asset_id AND is_project_member(a.project_id)
     )
   );
 
-CREATE POLICY "Admins can manage asset athletes"
-  ON asset_athletes FOR ALL
+DROP POLICY IF EXISTS "Admins can manage hub asset athletes" ON hub_asset_athletes;
+CREATE POLICY "Admins can manage hub asset athletes"
+  ON hub_asset_athletes FOR ALL
   USING (
     EXISTS (
       SELECT 1 FROM assets a WHERE a.id = asset_id AND is_project_admin(a.project_id)
     )
   );
 
--- ============================================
--- ASSET_CLUBS (junction)
--- ============================================
-
+-- ASSET_CLUBS
+DROP POLICY IF EXISTS "Members can view asset clubs" ON asset_clubs;
 CREATE POLICY "Members can view asset clubs"
   ON asset_clubs FOR SELECT
   USING (
@@ -241,6 +222,7 @@ CREATE POLICY "Members can view asset clubs"
     )
   );
 
+DROP POLICY IF EXISTS "Admins can manage asset clubs" ON asset_clubs;
 CREATE POLICY "Admins can manage asset clubs"
   ON asset_clubs FOR ALL
   USING (
@@ -249,11 +231,8 @@ CREATE POLICY "Admins can manage asset clubs"
     )
   );
 
--- ============================================
 -- APPROVALS
--- ============================================
-
--- Members can view approvals for assets they can see
+DROP POLICY IF EXISTS "Members can view approvals" ON approvals;
 CREATE POLICY "Members can view approvals"
   ON approvals FOR SELECT
   USING (
@@ -262,7 +241,7 @@ CREATE POLICY "Members can view approvals"
     )
   );
 
--- Admins can create approval requests
+DROP POLICY IF EXISTS "Admins can create approvals" ON approvals;
 CREATE POLICY "Admins can create approvals"
   ON approvals FOR INSERT
   WITH CHECK (
@@ -271,16 +250,13 @@ CREATE POLICY "Admins can create approvals"
     )
   );
 
--- Approvers can update their own approval (approve/reject/request changes)
+DROP POLICY IF EXISTS "Approvers can update own approval" ON approvals;
 CREATE POLICY "Approvers can update own approval"
   ON approvals FOR UPDATE
   USING (user_id = auth.uid());
 
--- ============================================
 -- COMMENTS
--- ============================================
-
--- Members can view comments on assets they can see
+DROP POLICY IF EXISTS "Members can view comments" ON comments;
 CREATE POLICY "Members can view comments"
   ON comments FOR SELECT
   USING (
@@ -289,7 +265,7 @@ CREATE POLICY "Members can view comments"
     )
   );
 
--- Members with comment permission can add comments (admin, brand, league, pa)
+DROP POLICY IF EXISTS "Authorized members can add comments" ON comments;
 CREATE POLICY "Authorized members can add comments"
   ON comments FOR INSERT
   WITH CHECK (
@@ -303,33 +279,24 @@ CREATE POLICY "Authorized members can add comments"
     )
   );
 
--- Users can delete their own comments
+DROP POLICY IF EXISTS "Users can delete own comments" ON comments;
 CREATE POLICY "Users can delete own comments"
   ON comments FOR DELETE
   USING (user_id = auth.uid());
 
--- ============================================
 -- ACTIVITY LOG
--- ============================================
-
--- Members can view activity for their project
+DROP POLICY IF EXISTS "Members can view activity" ON activity_log;
 CREATE POLICY "Members can view activity"
   ON activity_log FOR SELECT
   USING (is_project_member(project_id));
 
--- System/server inserts activity (using service role key, bypasses RLS)
--- Application-level inserts via server actions with service role
-
--- ============================================
 -- APPROVAL CHAINS
--- ============================================
-
--- Members can view approval chains
+DROP POLICY IF EXISTS "Members can view approval chains" ON approval_chains;
 CREATE POLICY "Members can view approval chains"
   ON approval_chains FOR SELECT
   USING (is_project_member(project_id));
 
--- Only admins can manage approval chains
+DROP POLICY IF EXISTS "Admins can manage approval chains" ON approval_chains;
 CREATE POLICY "Admins can manage approval chains"
   ON approval_chains FOR ALL
   USING (is_project_admin(project_id));
