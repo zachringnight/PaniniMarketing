@@ -1,24 +1,52 @@
 -- Partnership Hub: Initial Database Schema
--- Run this against your Supabase project's SQL editor
+-- Idempotent — safe to run multiple times on a shared Supabase instance.
+-- Run this against your Supabase project's SQL editor.
 
 -- ============================================
--- ENUMS
+-- ENUMS (idempotent via DO blocks)
 -- ============================================
 
-CREATE TYPE user_role AS ENUM ('admin', 'brand', 'league', 'pa', 'club', 'viewer');
-CREATE TYPE asset_status AS ENUM ('draft', 'in_review', 'approved', 'changes_requested', 'rejected', 'published', 'archived');
-CREATE TYPE content_bucket AS ENUM ('partnership', 'product', 'collecting', 'spotlight', 'hype', 'pr', 'trust');
-CREATE TYPE asset_format AS ENUM ('static', 'carousel', 'short_video', 'long_video', 'story', 'document');
-CREATE TYPE source_station AS ENUM ('field', 'pack_rips', 'social', 'vnr', 'signing', 'na');
-CREATE TYPE approval_status AS ENUM ('pending', 'approved', 'changes_requested', 'rejected');
-CREATE TYPE chain_type AS ENUM ('parallel', 'sequential');
+DO $$ BEGIN
+  CREATE TYPE user_role AS ENUM ('admin', 'brand', 'league', 'pa', 'club', 'viewer');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE asset_status AS ENUM ('draft', 'in_review', 'approved', 'changes_requested', 'rejected', 'published', 'archived');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE content_bucket AS ENUM ('partnership', 'product', 'collecting', 'spotlight', 'hype', 'pr', 'trust');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE asset_format AS ENUM ('static', 'carousel', 'short_video', 'long_video', 'story', 'document');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE source_station AS ENUM ('field', 'pack_rips', 'social', 'vnr', 'signing', 'na');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE approval_status AS ENUM ('pending', 'approved', 'changes_requested', 'rejected');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE chain_type AS ENUM ('parallel', 'sequential');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ============================================
 -- CORE TABLES
 -- ============================================
 
 -- Projects
-CREATE TABLE projects (
+CREATE TABLE IF NOT EXISTS projects (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   description text,
@@ -28,7 +56,7 @@ CREATE TABLE projects (
 );
 
 -- User profiles (extends Supabase auth.users)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email text NOT NULL UNIQUE,
   full_name text NOT NULL,
@@ -38,7 +66,7 @@ CREATE TABLE users (
 );
 
 -- Project membership with role
-CREATE TABLE project_members (
+CREATE TABLE IF NOT EXISTS project_members (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -48,7 +76,7 @@ CREATE TABLE project_members (
 );
 
 -- Phases within a project
-CREATE TABLE phases (
+CREATE TABLE IF NOT EXISTS phases (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   name text NOT NULL,
@@ -59,7 +87,7 @@ CREATE TABLE phases (
 );
 
 -- Clubs
-CREATE TABLE clubs (
+CREATE TABLE IF NOT EXISTS clubs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   name text NOT NULL,
@@ -67,8 +95,8 @@ CREATE TABLE clubs (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Athletes
-CREATE TABLE athletes (
+-- Athletes (named hub_athletes to avoid conflict with existing athletes table)
+CREATE TABLE IF NOT EXISTS hub_athletes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   full_name text NOT NULL,
@@ -79,7 +107,7 @@ CREATE TABLE athletes (
 );
 
 -- Assets (central content table)
-CREATE TABLE assets (
+CREATE TABLE IF NOT EXISTS assets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   phase_id uuid NOT NULL REFERENCES phases(id) ON DELETE RESTRICT,
@@ -101,21 +129,21 @@ CREATE TABLE assets (
 );
 
 -- Junction: assets <-> athletes
-CREATE TABLE asset_athletes (
+CREATE TABLE IF NOT EXISTS hub_asset_athletes (
   asset_id uuid NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-  athlete_id uuid NOT NULL REFERENCES athletes(id) ON DELETE CASCADE,
+  athlete_id uuid NOT NULL REFERENCES hub_athletes(id) ON DELETE CASCADE,
   PRIMARY KEY (asset_id, athlete_id)
 );
 
 -- Junction: assets <-> clubs
-CREATE TABLE asset_clubs (
+CREATE TABLE IF NOT EXISTS asset_clubs (
   asset_id uuid NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
   club_id uuid NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
   PRIMARY KEY (asset_id, club_id)
 );
 
 -- Approvals
-CREATE TABLE approvals (
+CREATE TABLE IF NOT EXISTS approvals (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   asset_id uuid NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES users(id),
@@ -127,7 +155,7 @@ CREATE TABLE approvals (
 );
 
 -- Comments (threaded)
-CREATE TABLE comments (
+CREATE TABLE IF NOT EXISTS comments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   asset_id uuid NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES users(id),
@@ -137,7 +165,7 @@ CREATE TABLE comments (
 );
 
 -- Activity log
-CREATE TABLE activity_log (
+CREATE TABLE IF NOT EXISTS activity_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES users(id),
@@ -148,7 +176,7 @@ CREATE TABLE activity_log (
 );
 
 -- Approval chains (configurable per project/content bucket)
-CREATE TABLE approval_chains (
+CREATE TABLE IF NOT EXISTS approval_chains (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   content_bucket content_bucket NOT NULL,
@@ -160,33 +188,33 @@ CREATE TABLE approval_chains (
 );
 
 -- ============================================
--- INDEXES
+-- INDEXES (IF NOT EXISTS)
 -- ============================================
 
-CREATE INDEX idx_project_members_project ON project_members(project_id);
-CREATE INDEX idx_project_members_user ON project_members(user_id);
-CREATE INDEX idx_phases_project ON phases(project_id);
-CREATE INDEX idx_clubs_project ON clubs(project_id);
-CREATE INDEX idx_athletes_project ON athletes(project_id);
-CREATE INDEX idx_athletes_club ON athletes(club_id);
-CREATE INDEX idx_assets_project ON assets(project_id);
-CREATE INDEX idx_assets_phase ON assets(phase_id);
-CREATE INDEX idx_assets_status ON assets(status);
-CREATE INDEX idx_assets_content_bucket ON assets(content_bucket);
-CREATE INDEX idx_assets_created_by ON assets(created_by);
-CREATE INDEX idx_asset_athletes_asset ON asset_athletes(asset_id);
-CREATE INDEX idx_asset_athletes_athlete ON asset_athletes(athlete_id);
-CREATE INDEX idx_asset_clubs_asset ON asset_clubs(asset_id);
-CREATE INDEX idx_asset_clubs_club ON asset_clubs(club_id);
-CREATE INDEX idx_approvals_asset ON approvals(asset_id);
-CREATE INDEX idx_approvals_user ON approvals(user_id);
-CREATE INDEX idx_approvals_status ON approvals(status);
-CREATE INDEX idx_comments_asset ON comments(asset_id);
-CREATE INDEX idx_comments_user ON comments(user_id);
-CREATE INDEX idx_activity_log_project ON activity_log(project_id);
-CREATE INDEX idx_activity_log_user ON activity_log(user_id);
-CREATE INDEX idx_activity_log_asset ON activity_log(asset_id);
-CREATE INDEX idx_activity_log_created ON activity_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_phases_project ON phases(project_id);
+CREATE INDEX IF NOT EXISTS idx_clubs_project ON clubs(project_id);
+CREATE INDEX IF NOT EXISTS idx_hub_athletes_project ON hub_athletes(project_id);
+CREATE INDEX IF NOT EXISTS idx_hub_athletes_club ON hub_athletes(club_id);
+CREATE INDEX IF NOT EXISTS idx_assets_project ON assets(project_id);
+CREATE INDEX IF NOT EXISTS idx_assets_phase ON assets(phase_id);
+CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status);
+CREATE INDEX IF NOT EXISTS idx_assets_content_bucket ON assets(content_bucket);
+CREATE INDEX IF NOT EXISTS idx_assets_created_by ON assets(created_by);
+CREATE INDEX IF NOT EXISTS idx_hub_asset_athletes_asset ON hub_asset_athletes(asset_id);
+CREATE INDEX IF NOT EXISTS idx_hub_asset_athletes_athlete ON hub_asset_athletes(athlete_id);
+CREATE INDEX IF NOT EXISTS idx_asset_clubs_asset ON asset_clubs(asset_id);
+CREATE INDEX IF NOT EXISTS idx_asset_clubs_club ON asset_clubs(club_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_asset ON approvals(asset_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_user ON approvals(user_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
+CREATE INDEX IF NOT EXISTS idx_comments_asset ON comments(asset_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_project ON activity_log(project_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_asset ON activity_log(asset_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC);
 
 -- ============================================
 -- TRIGGERS
@@ -201,10 +229,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER assets_updated_at
-  BEFORE UPDATE ON assets
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at();
+DO $$ BEGIN
+  CREATE TRIGGER assets_updated_at
+    BEFORE UPDATE ON assets
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Auto-create user profile on auth signup
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -220,7 +251,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW
-  EXECUTE FUNCTION handle_new_user();
+DO $$ BEGIN
+  CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION handle_new_user();
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

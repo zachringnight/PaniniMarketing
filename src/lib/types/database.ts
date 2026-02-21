@@ -123,7 +123,7 @@ export interface Database {
           market?: string | null;
         };
       };
-      athletes: {
+      hub_athletes: {
         Row: {
           id: string;
           project_id: string;
@@ -207,7 +207,7 @@ export interface Database {
           updated_at?: string;
         };
       };
-      asset_athletes: {
+      hub_asset_athletes: {
         Row: {
           asset_id: string;
           athlete_id: string;

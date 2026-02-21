@@ -25,7 +25,7 @@ export default async function NewAssetPage() {
 
   const { data: phasesRaw } = await supabase.from("phases").select("*").eq("project_id", projectId).order("sort_order");
   const { data: clubsRaw } = await supabase.from("clubs").select("*").eq("project_id", projectId).order("name");
-  const { data: athletesRaw } = await supabase.from("athletes").select("*").eq("project_id", projectId).order("full_name");
+  const { data: athletesRaw } = await supabase.from("hub_athletes").select("*").eq("project_id", projectId).order("full_name");
 
   const phases = (phasesRaw || []) as unknown as Phase[];
   const clubs = (clubsRaw || []) as unknown as Club[];

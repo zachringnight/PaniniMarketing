@@ -73,8 +73,8 @@ export default async function AssetDetailPage({
     .order("created_at");
 
   const { data: assetAthletesRaw } = await supabase
-    .from("asset_athletes")
-    .select("*, athlete:athletes(*)")
+    .from("hub_asset_athletes")
+    .select("*, athlete:hub_athletes(*)")
     .eq("asset_id", params.id);
 
   const { data: assetClubsRaw } = await supabase
