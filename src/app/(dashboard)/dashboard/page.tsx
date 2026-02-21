@@ -12,7 +12,13 @@ export default async function DashboardPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Please sign in to view the dashboard.</p>
+      </div>
+    );
+  }
 
   // Get user's project membership
   const { data: membershipRow } = await supabase

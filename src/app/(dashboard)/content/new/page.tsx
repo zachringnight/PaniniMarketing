@@ -9,7 +9,13 @@ export default async function NewAssetPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Please sign in to create assets.</p>
+      </div>
+    );
+  }
 
   const { data: membershipRow } = await supabase
     .from("project_members")

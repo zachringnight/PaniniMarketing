@@ -17,7 +17,13 @@ export default async function ContentQueuePage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Please sign in to view content.</p>
+      </div>
+    );
+  }
 
   // Get membership
   const { data: membershipRow } = await supabase

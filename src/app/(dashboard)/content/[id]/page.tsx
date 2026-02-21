@@ -35,7 +35,13 @@ export default async function AssetDetailPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Please sign in to view this asset.</p>
+      </div>
+    );
+  }
 
   const { data: membershipRow } = await supabase
     .from("project_members")
