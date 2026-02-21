@@ -1,9 +1,9 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { AssetForm } from "@/components/content/asset-form";
 import type { Phase, Club, Athlete } from "@/lib/types";
 
 export default async function NewAssetPage() {
-  const supabase = createServiceClient();
+  const supabase = createClient();
 
   const { data: projectRow } = await supabase
     .from("projects")

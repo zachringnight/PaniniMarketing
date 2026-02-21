@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { Suspense } from "react";
 import { AssetFilters } from "@/components/content/asset-filters";
 import { AssetGrid } from "@/components/library/asset-grid";
@@ -16,7 +16,7 @@ export default async function AssetLibraryPage({
     view?: string;
   };
 }) {
-  const supabase = createServiceClient();
+  const supabase = createClient();
 
   const { data: projectRow } = await supabase
     .from("projects")

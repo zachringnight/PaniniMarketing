@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ export default async function AssetDetailPage({
 }: {
   params: { id: string };
 }) {
-  const supabase = createServiceClient();
+  const supabase = createClient();
 
   const { data: assetData } = await supabase
     .from("assets")
