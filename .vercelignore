@@ -1,0 +1,4 @@
+.git
+supabase/
+*.md
+.env*.local
