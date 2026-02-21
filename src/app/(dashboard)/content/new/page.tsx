@@ -31,6 +31,18 @@ export default async function NewAssetPage() {
   const clubs = (clubsRaw || []) as unknown as Club[];
   const athletes = (athletesRaw || []) as unknown as Athlete[];
 
+  // Build roster map for athletes with roster links
+  const rosterIds = athletes.map((a) => a.roster_athlete_id).filter((id): id is number => id != null);
+  const rosterMap: Record<number, { sport: string; league: string; team: string }> = {};
+  if (rosterIds.length > 0) {
+    const { data: rosterData } = await supabase.from("athletes").select("id, sport, league, team").in("id", rosterIds);
+    if (rosterData) {
+      for (const r of rosterData as unknown as { id: number; sport: string; league: string; team: string }[]) {
+        rosterMap[r.id] = { sport: r.sport, league: r.league, team: r.team };
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -44,6 +56,7 @@ export default async function NewAssetPage() {
         phases={phases}
         clubs={clubs}
         athletes={athletes}
+        rosterMap={rosterMap}
       />
     </div>
   );

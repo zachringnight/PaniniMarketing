@@ -84,8 +84,25 @@ export default async function AssetDetailPage({
 
   const approvals = (approvalsRaw || []) as unknown as ApprovalWithUser[];
   const commentsData = (commentsRaw || []) as unknown as CommentWithUser[];
-  const assetAthletes = (assetAthletesRaw || []) as unknown as { athlete: { id: string; full_name: string } }[];
+  const assetAthletes = (assetAthletesRaw || []) as unknown as { athlete: { id: string; full_name: string; roster_athlete_id: number | null } }[];
   const assetClubs = (assetClubsRaw || []) as unknown as { club: { id: string; name: string } }[];
+
+  // Fetch roster metadata for linked athletes
+  const rosterIds = assetAthletes
+    .map((aa) => aa.athlete?.roster_athlete_id)
+    .filter((id): id is number => id != null);
+  const rosterMap = new Map<number, { sport: string; league: string; team: string }>();
+  if (rosterIds.length > 0) {
+    const { data: rosterData } = await supabase
+      .from("athletes")
+      .select("id, sport, league, team")
+      .in("id", rosterIds);
+    if (rosterData) {
+      for (const r of rosterData as unknown as { id: number; sport: string; league: string; team: string }[]) {
+        rosterMap.set(r.id, { sport: r.sport, league: r.league, team: r.team });
+      }
+    }
+  }
 
   const role = membership.role as import("@/lib/types/database").UserRole;
   const permissions = ROLE_PERMISSIONS[role];
@@ -241,12 +258,22 @@ export default async function AssetDetailPage({
                     {assetAthletes && assetAthletes.length > 0 && (
                       <div>
                         <span className="text-muted-foreground">Athletes</span>
-                        <div className="flex flex-wrap gap-1 mt-0.5">
-                          {assetAthletes.map((aa: { athlete: { id: string; full_name: string } }) => (
-                            <Badge key={aa.athlete.id} variant="secondary" className="text-xs">
-                              {aa.athlete.full_name}
-                            </Badge>
-                          ))}
+                        <div className="flex flex-wrap gap-1.5 mt-0.5">
+                          {assetAthletes.map((aa) => {
+                            const roster = aa.athlete?.roster_athlete_id
+                              ? rosterMap.get(aa.athlete.roster_athlete_id)
+                              : null;
+                            return (
+                              <Badge key={aa.athlete.id} variant="secondary" className="text-xs">
+                                {aa.athlete.full_name}
+                                {roster && (
+                                  <span className="ml-1 text-muted-foreground font-normal">
+                                    {roster.league} &middot; {roster.team}
+                                  </span>
+                                )}
+                              </Badge>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

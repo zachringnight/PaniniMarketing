@@ -24,6 +24,7 @@ const MIGRATIONS = [
   '001_initial_schema.sql',
   '002_rls_policies.sql',
   '003_seed_data.sql',
+  '004_athlete_cross_ref.sql',
 ];
 
 async function runWithPg() {

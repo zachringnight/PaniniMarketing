@@ -9,6 +9,33 @@ export type ChainType = "parallel" | "sequential";
 export interface Database {
   public: {
     Tables: {
+      athletes: {
+        Row: {
+          id: number;
+          name: string;
+          sport: string;
+          league: string;
+          team: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          name: string;
+          sport: string;
+          league: string;
+          team: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          sport?: string;
+          league?: string;
+          team?: string;
+          updated_at?: string;
+        };
+      };
       projects: {
         Row: {
           id: string;
@@ -131,6 +158,7 @@ export interface Database {
           club_id: string | null;
           headshot_url: string | null;
           embargo_until: string | null;
+          roster_athlete_id: number | null;
           created_at: string;
         };
         Insert: {
@@ -140,6 +168,7 @@ export interface Database {
           club_id?: string | null;
           headshot_url?: string | null;
           embargo_until?: string | null;
+          roster_athlete_id?: number | null;
           created_at?: string;
         };
         Update: {
@@ -147,6 +176,7 @@ export interface Database {
           club_id?: string | null;
           headshot_url?: string | null;
           embargo_until?: string | null;
+          roster_athlete_id?: number | null;
         };
       };
       assets: {

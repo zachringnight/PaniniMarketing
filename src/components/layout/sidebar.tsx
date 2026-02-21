@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FileStack,
+  Users,
   Library,
   Settings,
   ChevronLeft,
@@ -28,6 +29,12 @@ const navItems = [
     href: "/content",
     icon: FileStack,
     requiredPermission: "canViewQueue" as const,
+  },
+  {
+    label: "Roster",
+    href: "/roster",
+    icon: Users,
+    requiredPermission: null,
   },
   {
     label: "Asset Library",

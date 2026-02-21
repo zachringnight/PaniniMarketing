@@ -7,6 +7,7 @@ export type ProjectMember = Database["public"]["Tables"]["project_members"]["Row
 export type Phase = Database["public"]["Tables"]["phases"]["Row"];
 export type Club = Database["public"]["Tables"]["clubs"]["Row"];
 export type Athlete = Database["public"]["Tables"]["hub_athletes"]["Row"];
+export type RosterAthlete = Database["public"]["Tables"]["athletes"]["Row"];
 export type Asset = Database["public"]["Tables"]["assets"]["Row"];
 export type Approval = Database["public"]["Tables"]["approvals"]["Row"];
 export type Comment = Database["public"]["Tables"]["comments"]["Row"];
@@ -38,6 +39,10 @@ export type ProjectMemberWithUser = ProjectMember & {
 
 export type AthleteWithClub = Athlete & {
   club: Club | null;
+};
+
+export type RosterAthleteWithContentCount = RosterAthlete & {
+  content_count: number;
 };
 
 // Label maps for display
