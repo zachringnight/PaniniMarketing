@@ -40,7 +40,7 @@ export default async function RosterPage() {
   // Build a map of roster_athlete_id → distinct content (asset) count
   const countMap = new Map<number, number>();
   if (assetLinks) {
-    const assetSetMap = new Map<number, Set<number>>();
+    const assetSetMap = new Map<number, Set<string>>();
 
     for (const row of assetLinks as unknown as { asset_id: string; hub_athletes: { roster_athlete_id: number } }[]) {
       const rosterId = row.hub_athletes?.roster_athlete_id;
