@@ -11,9 +11,9 @@ export async function register() {
     
     try {
       validateEnv();
-      console.log('✓ Environment variables validated successfully');
+      console.log('[ENV] Environment variables validated successfully');
     } catch (error) {
-      console.error('❌ Environment validation failed:');
+      console.error('[ENV ERROR] Environment validation failed:');
       console.error((error as Error).message);
       
       // In production, we want to fail fast
