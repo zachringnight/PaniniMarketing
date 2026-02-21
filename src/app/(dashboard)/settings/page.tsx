@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MemberList } from "@/components/settings/member-list";
@@ -7,7 +7,7 @@ import { ApprovalChainEditor } from "@/components/settings/approval-chain-editor
 import type { ProjectMemberWithUser } from "@/lib/types";
 
 export default async function SettingsPage() {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   const { data: projectRow } = await supabase
     .from("projects")

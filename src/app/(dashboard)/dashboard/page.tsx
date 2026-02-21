@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { StatsBar } from "@/components/dashboard/stats-bar";
 import { Timeline } from "@/components/dashboard/timeline";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
@@ -6,7 +6,7 @@ import { PendingApprovals } from "@/components/dashboard/pending-approvals";
 import type { Asset, Phase, ActivityLogEntry, User } from "@/lib/types";
 
 export default async function DashboardPage() {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   // Get first project
   const { data: projectRow } = await supabase

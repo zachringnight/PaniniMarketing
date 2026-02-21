@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -11,7 +11,7 @@ export default async function ContentQueuePage({
 }: {
   searchParams: { q?: string; status?: string; bucket?: string; phase?: string };
 }) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   const { data: projectRow } = await supabase
     .from("projects")
