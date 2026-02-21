@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect, notFound } from "next/navigation";
+import { createServiceClient } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,14 +14,12 @@ import {
 } from "lucide-react";
 import { StatusBadge } from "@/components/content/status-badge";
 import { ApprovalPanel } from "@/components/content/approval-panel";
-import { ApprovalActions } from "@/components/content/approval-actions";
 import { CommentThread } from "@/components/content/comment-thread";
 import { AssetStatusActions } from "@/components/content/asset-status-actions";
 import {
   CONTENT_BUCKET_LABELS,
   ASSET_FORMAT_LABELS,
   SOURCE_STATION_LABELS,
-  ROLE_PERMISSIONS,
 } from "@/lib/types";
 import type { ApprovalWithUser, CommentWithUser } from "@/lib/types";
 
@@ -30,30 +28,8 @@ export default async function AssetDetailPage({
 }: {
   params: { id: string };
 }) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Please sign in to view this asset.</p>
-      </div>
-    );
-  }
-
-  const { data: membershipRow } = await supabase
-    .from("project_members")
-    .select("*")
-    .eq("user_id", user.id)
-    .limit(1)
-    .single();
-
-  const membership = membershipRow as { project_id: string; role: string; user_id: string; id: string } | null;
-  if (!membership) redirect("/dashboard");
-
-  // Fetch asset with relations
   const { data: assetData } = await supabase
     .from("assets")
     .select("*, phase:phases(*), created_by_user:users!assets_created_by_fkey(*)")
@@ -66,7 +42,6 @@ export default async function AssetDetailPage({
     created_by_user: { full_name: string } | null;
   };
 
-  // Fetch related data
   const { data: approvalsRaw } = await supabase
     .from("approvals")
     .select("*, user:users(*)")
@@ -94,20 +69,11 @@ export default async function AssetDetailPage({
   const assetAthletes = (assetAthletesRaw || []) as unknown as { athlete: { id: string; full_name: string } }[];
   const assetClubs = (assetClubsRaw || []) as unknown as { club: { id: string; name: string } }[];
 
-  const role = membership.role as import("@/lib/types/database").UserRole;
-  const permissions = ROLE_PERMISSIONS[role];
-
-  // Check if current user has a pending approval
-  const userPendingApproval = approvals.find(
-    (a) => a.user_id === user.id && a.status === "pending"
-  );
-
   const phase = asset.phase;
   const createdByUser = asset.created_by_user;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/content">
           <Button variant="ghost" size="icon">
@@ -128,14 +94,12 @@ export default async function AssetDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {role === "admin" && (
-            <Link href={`/content/${params.id}/edit`}>
-              <Button variant="outline" size="sm">
-                <Pencil className="mr-1.5 h-4 w-4" />
-                Edit
-              </Button>
-            </Link>
-          )}
+          <Link href={`/content/${params.id}/edit`}>
+            <Button variant="outline" size="sm">
+              <Pencil className="mr-1.5 h-4 w-4" />
+              Edit
+            </Button>
+          </Link>
           <a href={asset.external_url} target="_blank" rel="noopener noreferrer">
             <Button size="sm">
               <ExternalLink className="mr-1.5 h-4 w-4" />
@@ -146,9 +110,7 @@ export default async function AssetDetailPage({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Preview & Description */}
           <Card>
             <CardContent className="p-6">
               <div className="flex gap-6">
@@ -179,7 +141,6 @@ export default async function AssetDetailPage({
             </CardContent>
           </Card>
 
-          {/* Metadata */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Details</CardTitle>
@@ -200,14 +161,14 @@ export default async function AssetDetailPage({
                 </div>
                 <div>
                   <span className="text-muted-foreground">Phase</span>
-                  <p className="font-medium">{phase?.name || "—"}</p>
+                  <p className="font-medium">{phase?.name || "\u2014"}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Source Station</span>
                   <p className="font-medium">
                     {asset.source_station
                       ? SOURCE_STATION_LABELS[asset.source_station]
-                      : "—"}
+                      : "\u2014"}
                   </p>
                 </div>
                 <div>
@@ -225,12 +186,11 @@ export default async function AssetDetailPage({
                   <p className="font-medium">
                     {asset.approval_due
                       ? new Date(asset.approval_due).toLocaleDateString()
-                      : "—"}
+                      : "\u2014"}
                   </p>
                 </div>
               </div>
 
-              {/* Tags */}
               {(assetAthletes?.length || assetClubs?.length) ? (
                 <>
                   <Separator className="my-4" />
@@ -265,7 +225,6 @@ export default async function AssetDetailPage({
             </CardContent>
           </Card>
 
-          {/* Comments */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Comments</CardTitle>
@@ -274,45 +233,28 @@ export default async function AssetDetailPage({
               <CommentThread
                 comments={commentsData}
                 assetId={params.id}
-                canComment={permissions.canComment}
+                canComment={true}
               />
             </CardContent>
           </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Admin status controls */}
-          {role === "admin" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Status Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AssetStatusActions assetId={params.id} currentStatus={asset.status} />
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Status Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AssetStatusActions assetId={params.id} currentStatus={asset.status} />
+            </CardContent>
+          </Card>
 
-          {/* Approval Status */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Approvals</CardTitle>
             </CardHeader>
             <CardContent>
-              <ApprovalPanel
-                approvals={approvals}
-              />
-              {userPendingApproval && (
-                <>
-                  <Separator className="my-4" />
-                  <h4 className="text-sm font-medium mb-2">Your Review</h4>
-                  <ApprovalActions
-                    approvalId={userPendingApproval.id}
-                    assetId={params.id}
-                  />
-                </>
-              )}
+              <ApprovalPanel approvals={approvals} />
             </CardContent>
           </Card>
         </div>

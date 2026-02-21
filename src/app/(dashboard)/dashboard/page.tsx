@@ -1,48 +1,31 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { StatsBar } from "@/components/dashboard/stats-bar";
 import { Timeline } from "@/components/dashboard/timeline";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { PendingApprovals } from "@/components/dashboard/pending-approvals";
-import { redirect } from "next/navigation";
 import type { Asset, Phase, ActivityLogEntry, User } from "@/lib/types";
 
 export default async function DashboardPage() {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Please sign in to view the dashboard.</p>
-      </div>
-    );
-  }
-
-  // Get user's project membership
-  const { data: membershipRow } = await supabase
-    .from("project_members")
-    .select("*, projects(*)")
-    .eq("user_id", user.id)
+  // Get first project
+  const { data: projectRow } = await supabase
+    .from("projects")
+    .select("*")
     .limit(1)
     .single();
 
-  const membership = membershipRow as { project_id: string; role: string; projects: { name: string } } | null;
-
-  if (!membership) {
+  if (!projectRow) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">
-          You are not assigned to any project yet. Contact your admin for access.
-        </p>
+        <p className="text-muted-foreground">No project found.</p>
       </div>
     );
   }
 
-  const projectId = membership.project_id;
+  const project = projectRow as unknown as { id: string; name: string };
+  const projectId = project.id;
 
-  // Fetch data (separate queries to avoid Promise.all type issues)
   const { data: phasesRaw } = await supabase
     .from("phases")
     .select("*")
@@ -70,7 +53,6 @@ export default async function DashboardPage() {
   const allPhases = (phasesRaw || []) as unknown as Phase[];
   const activities = (activitiesRaw || []) as unknown as (ActivityLogEntry & { user: User })[];
 
-  // Calculate stats
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const pendingApprovals = allAssets.filter((a) => a.status === "in_review").length;
@@ -81,7 +63,6 @@ export default async function DashboardPage() {
     (a) => a.publish_date && new Date(a.publish_date) >= weekAgo && a.status === "published"
   ).length;
 
-  // Group assets by phase
   const assetsByPhase: Record<string, Asset[]> = {};
   for (const asset of allAssets) {
     if (!assetsByPhase[asset.phase_id]) {
@@ -90,23 +71,12 @@ export default async function DashboardPage() {
     assetsByPhase[asset.phase_id].push(asset);
   }
 
-  // Get pending items for current user's review
-  const { data: pendingRaw } = await supabase
-    .from("approvals")
-    .select("asset_id")
-    .eq("user_id", user.id)
-    .eq("status", "pending");
-
-  const pendingForUser = (pendingRaw || []) as unknown as { asset_id: string }[];
-  const pendingAssetIds = new Set(pendingForUser.map((a) => a.asset_id));
-  const pendingAssets = allAssets.filter((a) => pendingAssetIds.has(a.id));
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">
-          {membership.projects.name}
+          {project.name}
         </p>
       </div>
 
@@ -122,7 +92,7 @@ export default async function DashboardPage() {
           <Timeline phases={allPhases} assetsByPhase={assetsByPhase} />
         </div>
         <div className="space-y-6">
-          <PendingApprovals assets={pendingAssets} />
+          <PendingApprovals assets={[]} />
           <ActivityFeed activities={activities} />
         </div>
       </div>

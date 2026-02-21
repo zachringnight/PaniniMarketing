@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -12,40 +11,26 @@ export default async function ContentQueuePage({
 }: {
   searchParams: { q?: string; status?: string; bucket?: string; phase?: string };
 }) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Please sign in to view content.</p>
-      </div>
-    );
-  }
-
-  // Get membership
-  const { data: membershipRow } = await supabase
-    .from("project_members")
-    .select("*")
-    .eq("user_id", user.id)
+  const { data: projectRow } = await supabase
+    .from("projects")
+    .select("id")
     .limit(1)
     .single();
 
-  const membership = membershipRow as { project_id: string; role: string; user_id: string; id: string } | null;
-  if (!membership) redirect("/dashboard");
+  if (!projectRow) {
+    return <p className="text-muted-foreground p-6">No project found.</p>;
+  }
 
-  const projectId = membership.project_id;
+  const projectId = (projectRow as unknown as { id: string }).id;
 
-  // Fetch phases for filters
   const { data: phases } = await supabase
     .from("phases")
     .select("*")
     .eq("project_id", projectId)
     .order("sort_order");
 
-  // Build asset query with filters
   let query = supabase
     .from("assets")
     .select("*, phase:phases(*)")
@@ -68,8 +53,6 @@ export default async function ContentQueuePage({
   const { data: assetsRaw } = await query;
   const assets = (assetsRaw || []) as unknown as (import("@/lib/types").Asset & { phase?: import("@/lib/types").Phase })[];
 
-  const isAdmin = membership.role === "admin";
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -79,14 +62,12 @@ export default async function ContentQueuePage({
             Manage and track content through the approval pipeline.
           </p>
         </div>
-        {isAdmin && (
-          <Link href="/content/new">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Asset
-            </Button>
-          </Link>
-        )}
+        <Link href="/content/new">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            New Asset
+          </Button>
+        </Link>
       </div>
 
       <Suspense fallback={null}>

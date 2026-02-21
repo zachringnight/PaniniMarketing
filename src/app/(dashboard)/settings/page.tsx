@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { createServiceClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MemberList } from "@/components/settings/member-list";
@@ -8,32 +7,21 @@ import { ApprovalChainEditor } from "@/components/settings/approval-chain-editor
 import type { ProjectMemberWithUser } from "@/lib/types";
 
 export default async function SettingsPage() {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Please sign in to access settings.</p>
-      </div>
-    );
-  }
-
-  const { data: membershipRow } = await supabase
-    .from("project_members")
+  const { data: projectRow } = await supabase
+    .from("projects")
     .select("*")
-    .eq("user_id", user.id)
     .limit(1)
     .single();
 
-  const membership = membershipRow as { project_id: string; role: string; user_id: string; id: string } | null;
-  if (!membership || membership.role !== "admin") redirect("/dashboard");
+  if (!projectRow) {
+    return <p className="text-muted-foreground p-6">No project found.</p>;
+  }
 
-  const projectId = membership.project_id;
+  const project = projectRow as unknown as import("@/lib/types").Project;
+  const projectId = project.id;
 
-  const { data: projectRaw } = await supabase.from("projects").select("*").eq("id", projectId).single();
   const { data: membersRaw } = await supabase
     .from("project_members")
     .select("*, user:users(*)")
@@ -45,7 +33,6 @@ export default async function SettingsPage() {
     .eq("project_id", projectId)
     .order("sort_order");
 
-  const project = projectRaw as unknown as import("@/lib/types").Project | null;
   const members = (membersRaw || []) as unknown as ProjectMemberWithUser[];
   const chains = (chainsRaw || []) as unknown as import("@/lib/types").ApprovalChain[];
 
@@ -56,37 +43,33 @@ export default async function SettingsPage() {
         <p className="text-muted-foreground">Manage your project, team, and approval workflows.</p>
       </div>
 
-      {/* Project Info */}
-      {project && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Project Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Project Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div>
+            <span className="text-muted-foreground">Name:</span>{" "}
+            <span className="font-medium">{project.name}</span>
+          </div>
+          {project.description && (
             <div>
-              <span className="text-muted-foreground">Name:</span>{" "}
-              <span className="font-medium">{project.name}</span>
+              <span className="text-muted-foreground">Description:</span>{" "}
+              <span>{project.description}</span>
             </div>
-            {project.description && (
-              <div>
-                <span className="text-muted-foreground">Description:</span>{" "}
-                <span>{project.description}</span>
-              </div>
-            )}
-            <div>
-              <span className="text-muted-foreground">Duration:</span>{" "}
-              <span>
-                {new Date(project.start_date).toLocaleDateString()} —{" "}
-                {project.end_date ? new Date(project.end_date).toLocaleDateString() : "Ongoing"}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+          <div>
+            <span className="text-muted-foreground">Duration:</span>{" "}
+            <span>
+              {new Date(project.start_date).toLocaleDateString()} {" "}
+              {project.end_date ? new Date(project.end_date).toLocaleDateString() : "Ongoing"}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       <Separator />
 
-      {/* Team Members */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -100,13 +83,12 @@ export default async function SettingsPage() {
         <MemberList
           members={members}
           projectId={projectId}
-          currentUserId={user.id}
+          currentUserId=""
         />
       </div>
 
       <Separator />
 
-      {/* Approval Chains */}
       <div className="space-y-4">
         <div>
           <h2 className="text-lg font-semibold">Approval Chains</h2>

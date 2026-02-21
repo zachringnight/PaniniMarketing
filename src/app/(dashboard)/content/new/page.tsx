@@ -1,33 +1,21 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { createServiceClient } from "@/lib/supabase/server";
 import { AssetForm } from "@/components/content/asset-form";
 import type { Phase, Club, Athlete } from "@/lib/types";
 
 export default async function NewAssetPage() {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Please sign in to create assets.</p>
-      </div>
-    );
-  }
-
-  const { data: membershipRow } = await supabase
-    .from("project_members")
-    .select("*")
-    .eq("user_id", user.id)
+  const { data: projectRow } = await supabase
+    .from("projects")
+    .select("id")
     .limit(1)
     .single();
 
-  const membership = membershipRow as { project_id: string; role: string } | null;
-  if (!membership || membership.role !== "admin") redirect("/content");
+  if (!projectRow) {
+    return <p className="text-muted-foreground p-6">No project found.</p>;
+  }
 
-  const projectId = membership.project_id;
+  const projectId = (projectRow as unknown as { id: string }).id;
 
   const { data: phasesRaw } = await supabase.from("phases").select("*").eq("project_id", projectId).order("sort_order");
   const { data: clubsRaw } = await supabase.from("clubs").select("*").eq("project_id", projectId).order("name");

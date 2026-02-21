@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { createServiceClient } from "@/lib/supabase/server";
 import { Suspense } from "react";
 import { AssetFilters } from "@/components/content/asset-filters";
 import { AssetGrid } from "@/components/library/asset-grid";
@@ -17,39 +16,26 @@ export default async function AssetLibraryPage({
     view?: string;
   };
 }) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Please sign in to view the library.</p>
-      </div>
-    );
-  }
-
-  const { data: membershipRow } = await supabase
-    .from("project_members")
-    .select("*")
-    .eq("user_id", user.id)
+  const { data: projectRow } = await supabase
+    .from("projects")
+    .select("id")
     .limit(1)
     .single();
 
-  const membership = membershipRow as { project_id: string; role: string; user_id: string; id: string } | null;
-  if (!membership) redirect("/dashboard");
+  if (!projectRow) {
+    return <p className="text-muted-foreground p-6">No project found.</p>;
+  }
 
-  const projectId = membership.project_id;
+  const projectId = (projectRow as unknown as { id: string }).id;
 
-  // Phases for filters
   const { data: phases } = await supabase
     .from("phases")
     .select("*")
     .eq("project_id", projectId)
     .order("sort_order");
 
-  // Query approved/published/archived assets (the library)
   let query = supabase
     .from("assets")
     .select("*, phase:phases(*)")
