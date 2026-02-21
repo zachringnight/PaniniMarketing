@@ -32,6 +32,7 @@ interface AssetFormProps {
   asset?: Asset;
   assetClubIds?: string[];
   assetAthleteIds?: string[];
+  rosterMap?: Record<number, { sport: string; league: string; team: string }>;
 }
 
 export function AssetForm({
@@ -42,6 +43,7 @@ export function AssetForm({
   asset,
   assetClubIds = [],
   assetAthleteIds = [],
+  rosterMap = {},
 }: AssetFormProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -305,18 +307,28 @@ export function AssetForm({
                 <div className="space-y-2">
                   <Label>Athletes</Label>
                   <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-                    {athletes.map((athlete) => (
-                      <Button
-                        key={athlete.id}
-                        type="button"
-                        variant={selectedAthletes.includes(athlete.id) ? "default" : "outline"}
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => toggleAthlete(athlete.id)}
-                      >
-                        {athlete.full_name}
-                      </Button>
-                    ))}
+                    {athletes.map((athlete) => {
+                      const roster = athlete.roster_athlete_id
+                        ? rosterMap[athlete.roster_athlete_id]
+                        : null;
+                      return (
+                        <Button
+                          key={athlete.id}
+                          type="button"
+                          variant={selectedAthletes.includes(athlete.id) ? "default" : "outline"}
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => toggleAthlete(athlete.id)}
+                        >
+                          {athlete.full_name}
+                          {roster && (
+                            <span className="ml-1 opacity-60">
+                              ({roster.league})
+                            </span>
+                          )}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

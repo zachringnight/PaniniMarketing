@@ -19,9 +19,10 @@ import type { Phase } from "@/lib/types";
 
 interface AssetFiltersProps {
   phases: Phase[];
+  rosterAthletes?: { id: number; name: string }[];
 }
 
-export function AssetFilters({ phases }: AssetFiltersProps) {
+export function AssetFilters({ phases, rosterAthletes = [] }: AssetFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -100,6 +101,25 @@ export function AssetFilters({ phases }: AssetFiltersProps) {
           ))}
         </SelectContent>
       </Select>
+
+      {rosterAthletes.length > 0 && (
+        <Select
+          value={searchParams.get("athlete") || "all"}
+          onValueChange={(v) => updateFilter("athlete", v)}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Athlete" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Athletes</SelectItem>
+            {rosterAthletes.map((athlete) => (
+              <SelectItem key={athlete.id} value={String(athlete.id)}>
+                {athlete.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       {hasFilters && (
         <Button variant="ghost" size="sm" onClick={clearFilters}>

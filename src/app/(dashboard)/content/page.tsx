@@ -10,7 +10,7 @@ import { Suspense } from "react";
 export default async function ContentQueuePage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; bucket?: string; phase?: string };
+  searchParams: { q?: string; status?: string; bucket?: string; phase?: string; athlete?: string };
 }) {
   const supabase = createClient();
 
@@ -39,6 +39,36 @@ export default async function ContentQueuePage({
     .eq("project_id", projectId)
     .order("sort_order");
 
+  // Fetch roster athletes for filter dropdown
+  const { data: rosterAthletes } = await supabase
+    .from("athletes")
+    .select("id, name")
+    .order("name");
+
+  // If athlete filter is set, find matching asset IDs
+  let athleteAssetIds: string[] | null = null;
+  if (searchParams.athlete) {
+    const rosterId = parseInt(searchParams.athlete, 10);
+    if (!isNaN(rosterId)) {
+      // Find hub_athletes linked to this roster athlete
+      const { data: hubAthletes } = await supabase
+        .from("hub_athletes")
+        .select("id")
+        .eq("roster_athlete_id", rosterId);
+
+      if (hubAthletes && hubAthletes.length > 0) {
+        const hubIds = (hubAthletes as unknown as { id: string }[]).map((h) => h.id);
+        const { data: assetLinks } = await supabase
+          .from("hub_asset_athletes")
+          .select("asset_id")
+          .in("athlete_id", hubIds);
+        athleteAssetIds = (assetLinks || []).map((l: { asset_id: string }) => l.asset_id);
+      } else {
+        athleteAssetIds = [];
+      }
+    }
+  }
+
   // Build asset query with filters
   let query = supabase
     .from("assets")
@@ -57,6 +87,14 @@ export default async function ContentQueuePage({
   }
   if (searchParams.q) {
     query = query.ilike("title", `%${searchParams.q}%`);
+  }
+  if (athleteAssetIds !== null) {
+    if (athleteAssetIds.length === 0) {
+      // No matching assets - return empty
+      query = query.in("id", ["__none__"]);
+    } else {
+      query = query.in("id", athleteAssetIds);
+    }
   }
 
   const { data: assetsRaw } = await query;
@@ -84,7 +122,10 @@ export default async function ContentQueuePage({
       </div>
 
       <Suspense fallback={null}>
-        <AssetFilters phases={(phases || []) as unknown as import("@/lib/types").Phase[]} />
+        <AssetFilters
+          phases={(phases || []) as unknown as import("@/lib/types").Phase[]}
+          rosterAthletes={(rosterAthletes || []) as unknown as { id: number; name: string }[]}
+        />
       </Suspense>
 
       <AssetList assets={assets} />
